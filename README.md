@@ -50,7 +50,7 @@ terraform init
 terraform apply
 # Type "yes" when propted
 
-# Wait for a minute for the server to properly initiate
+# Wait for a minute for the server to properly initialize
 
 # Install OpenVPN with Ansible
 ansible-playbook -i inventory site.yml
