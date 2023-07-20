@@ -1,0 +1,101 @@
+---
+- name: OpenVPN
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: robertdebock.openvpn
+
+  tasks:
+    - name: Install iptables-persistent
+      ansible.builtin.package:
+        name: iptables-persistent
+        state: present
+
+    - name: Copy iptables rules
+      ansible.builtin.copy:
+        src: ./iptables.rules.v4
+        dest: /etc/iptables/rules.v4
+        mode: "0644"
+      register: iptables_rules
+
+    - name: Restore iptables
+      community.general.iptables_state:
+        ip_version: ipv4
+        path: /etc/iptables/rules.v4
+        state: restored
+      async: "{{ ansible_timeout }}"
+      poll: 0
+      when: iptables_rules.changed
+
+    - name: Apply the routing rule so that traffic can leave the VPN
+      ansible.builtin.iptables:
+        table: nat
+        chain: POSTROUTING
+        source: 10.89.0.0/24
+        out_interface: eth0
+        jump: MASQUERADE
+      when: iptables_rules.changed
+
+    - name: Save iptables
+      community.general.iptables_state:
+        ip_version: ipv4
+        path: /etc/iptables/rules.v4
+        state: saved
+      when: iptables_rules.changed
+
+    - name: Allow IPv4 traffic forwarding in kernel
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        sysctl_set: yes
+        reload: yes
+
+    - name: Copy OpenVPN server configuration
+      ansible.builtin.copy:
+        src: ./server.conf
+        dest: /etc/openvpn/server.conf
+        mode: "0644"
+      notify: Restart openvpn
+
+    - name: Create local temp directory
+      ansible.builtin.file:
+        path: ./.tmp/
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: no
+
+    - name: Copy certificates and keys from the OpenVPN server
+      ansible.builtin.fetch:
+        src: /etc/openvpn/easy-rsa/pki/{{ item }}
+        dest: ./.tmp/
+        flat: yes
+      loop:
+        - ca.crt
+        - issued/client.crt
+        - private/client.key
+        - ta.key
+
+    - name: Create OpenVPN client config file
+      ansible.builtin.template:
+        src: client.ovpn.j2
+        dest: "{{ inventory_hostname }}.ovpn"
+        mode: "0640"
+      vars:
+        remote: "{{ inventory_hostname }}"
+        ca: "{{ lookup('file', './.tmp/ca.crt') }}"
+        cert: "{{ lookup('file', './.tmp/client.crt') }}"
+        key: "{{ lookup('file', './.tmp/client.key') }}"
+        ta: "{{ lookup('file', './.tmp/ta.key') }}"
+      delegate_to: localhost
+      become: no
+
+    - name: Delete local temp directory
+      ansible.builtin.file:
+        path: ./.tmp/
+        state: absent
+      delegate_to: localhost
+      become: no

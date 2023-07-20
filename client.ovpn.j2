@@ -1,0 +1,29 @@
+client
+tls-client
+pull
+dev tun
+persist-key
+persist-tun
+remote {{ remote }} 1194
+proto udp
+resolv-retry 5
+nobind
+key-direction 1
+verb 3
+auth SHA1
+
+<ca>
+{{ca}}
+</ca>
+
+<cert>
+{{cert}}
+</cert>
+
+<key>
+{{key}}
+</key>
+
+<tls-crypt>
+{{ta}}
+</tls-crypt>
