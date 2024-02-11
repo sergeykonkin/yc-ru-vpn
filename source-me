@@ -1,6 +1,8 @@
 YC_CURRENT_PROFILE=$(yc config profile list | grep ACTIVE | cut -d ' ' -f 1)
 YC_PROFILE=${YC_PROFILE:-$YC_CURRENT_PROFILE}
 
+echo "using profile $YC_PROFILE"
+
 export TF_VAR_yc_iam_token=$(yc --profile=$YC_PROFILE iam create-token)
 export TF_VAR_yc_cloud_id=$(yc --profile=$YC_PROFILE config get cloud-id)
 export TF_VAR_yc_folder_id=$(yc --profile=$YC_PROFILE config get folder-id)

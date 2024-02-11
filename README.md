@@ -53,6 +53,7 @@ terraform apply
 # Wait for a minute for the server to properly initialize
 
 # Install OpenVPN with Ansible
+ansible-galaxy install -r requirements.yml
 ansible-playbook -i inventory site.yml
 ```
 
