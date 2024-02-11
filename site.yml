@@ -60,42 +60,38 @@
         mode: "0644"
       notify: Restart openvpn
 
-    - name: Create local temp directory
-      ansible.builtin.file:
-        path: ./.tmp/
-        state: directory
-        mode: "0755"
-      delegate_to: localhost
-      become: no
-
-    - name: Copy certificates and keys from the OpenVPN server
-      ansible.builtin.fetch:
-        src: /etc/openvpn/easy-rsa/pki/{{ item }}
-        dest: ./.tmp/
-        flat: yes
+    - name: Slurp pki file contents
+      ansible.builtin.slurp:
+        src: "{{ item }}"
       loop:
-        - ca.crt
-        - issued/client.crt
-        - private/client.key
-        - ta.key
+        - /etc/openvpn/easy-rsa/pki/ca.crt
+        - /etc/openvpn/easy-rsa/pki/issued/client.crt
+        - /etc/openvpn/easy-rsa/pki/private/client.key
+        - /etc/openvpn/easy-rsa/pki/ta.key
+      register: slurp
 
-    - name: Create OpenVPN client config file
+    - name: Parse slurp results
+      set_fact:
+        pki_files: "{{ pki_files | default({}) | combine({ item.source: item.content | b64decode }) }}"
+      loop: "{{ slurp.results }}"
+      no_log: true
+
+    - name: Create OpenVPN client profile
       ansible.builtin.template:
         src: client.ovpn.j2
-        dest: "{{ inventory_hostname }}.ovpn"
+        dest: "~/profile.ovpn"
         mode: "0640"
       vars:
         remote: "{{ inventory_hostname }}"
-        ca: "{{ lookup('file', './.tmp/ca.crt') }}"
-        cert: "{{ lookup('file', './.tmp/client.crt') }}"
-        key: "{{ lookup('file', './.tmp/client.key') }}"
-        ta: "{{ lookup('file', './.tmp/ta.key') }}"
-      delegate_to: localhost
+        ca: '{{ pki_files["/etc/openvpn/easy-rsa/pki/ca.crt"] }}'
+        cert: '{{ pki_files["/etc/openvpn/easy-rsa/pki/issued/client.crt"] }}'
+        key: '{{ pki_files["/etc/openvpn/easy-rsa/pki/private/client.key"] }}'
+        ta: '{{ pki_files["/etc/openvpn/easy-rsa/pki/ta.key"] }}'
       become: no
 
-    - name: Delete local temp directory
-      ansible.builtin.file:
-        path: ./.tmp/
-        state: absent
-      delegate_to: localhost
+    - name: Copy OpenVPN client profile to the localhost
+      ansible.builtin.fetch:
+        src: ~/profile.ovpn
+        dest: ./
+        flat: yes
       become: no

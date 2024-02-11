@@ -59,7 +59,9 @@ ansible-playbook -i inventory site.yml
 
 ### Result
 
-As a result, the `<IP_ADDRESS>.ovpn` file will be created in the current directory. Use it with any OpenVPN client (like official OpenVPN Client or Tunnelblick) to connect to your freshly created OpenVPN server.
+As a result, the `profile.ovpn` file will be created in the current directory. Use it with any OpenVPN client (like official OpenVPN Client or Tunnelblick) to connect to your freshly created OpenVPN server.
+
+> Copy of it will be in the home directory of `ubuntu` user on the virtual machine.
 
 ## Uninstall
 
